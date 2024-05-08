@@ -5,14 +5,19 @@ const app = express();
 const port = process.env.PORT || 5000;
 
 // middleware
-app.use(cors());
+app.use(cors({
+  origin:["http://localhost:5173"],
+  credentials: true
+}));
 app.use(express.json());
 
 
 
 
-const { MongoClient, ServerApiVersion } = require('mongodb');
-const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.swu9d.mongodb.net/?retryWrites=true&w=majority`;
+const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
+// const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.swu9d.mongodb.net/?retryWrites=true&w=majority`;
+const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.iepmiic.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
+
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
 const client = new MongoClient(uri, {
@@ -31,8 +36,36 @@ async function run() {
     const productCollection = client.db('emaJohnDB').collection('products');
 
     app.get('/products', async(req, res) => {
-        const result = await productCollection.find().toArray();
+      const page = parseInt(req.query.page);
+      const size = parseInt(req.query.size);
+      console.log(page, size);
+
+        const result = await productCollection.find()
+        .skip(page * size)
+        .limit(size)
+        .toArray();
         res.send(result);
+    })
+
+    // Search items for some entities like ids, emails
+    app.post('/productsByIds', async(req, res)=>{
+      const ids = req.body;
+      console.log(ids);
+
+      const objectIds = ids.map(id => new ObjectId(id));
+      const query = {
+        _id:{
+          $in: objectIds
+        }
+      }
+      const result = await productCollection.find(query).toArray();
+      res.send(result);
+    })
+
+    app.get('/productCount', async(req, res) =>{
+      const count = await productCollection.estimatedDocumentCount();
+
+      res.send({count});
     })
 
     // Send a ping to confirm a successful connection
